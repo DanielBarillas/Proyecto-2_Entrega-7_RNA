@@ -1,0 +1,205 @@
+---
+title: "Proyecto 2. Entrega 7. RNA"
+author: 
+  - "Pablo Daniel Barillas Moreno, Carné No. 22193"
+  - "Mathew Cordero Aquino, Carné No. 22982"
+output:
+  html_document: default
+  pdf_document:
+    latex_engine: xelatex
+always_allow_html: true
+date: "2025-03-14"
+header-includes:
+   - \usepackage{fvextra}
+   - \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+repository: "https://github.com/DanielBarillas/Proyecto-2_Entrega-7_RNA.git"
+---
+
+### Enlace al Repositorio del proyecto 2 - Entrega 5 de minería de datos del Grupo #1
+[Repositorio en GitHub](https://github.com/DanielBarillas/Proyecto-2_Entrega-7_RNA.git)
+
+### 0. Descargue los conjuntos de datos. 
+
+Para este punto, ya se ha realizado el proceso para descargar del sitio web: [House Prices - Advanced Regression Techniques](https://kaggle.com/competitions/house-prices-advanced-regression-techniques), la data de entrenamiento y la data de prueba, ambos extraídos desde la carpeta "house_prices_data/" en data frames llamados train_data (data de entrenamiento) y test_data (data de prueba), sin convertir automáticamente las variables categóricas en factores (stringsAsFactors = FALSE). Luego, se realiza una inspección inicial de train_data mediante tres funciones: head(train_data), que muestra las primeras filas del dataset; str(train_data), que despliega la estructura del data frame, incluyendo el tipo de cada variable; y summary(train_data), que proporciona un resumen estadístico de las variables numéricas y una descripción general de las categóricas.
+
+```{r}
+  train_data <- read.csv("train_set.csv", stringsAsFactors = FALSE)
+  test_data <- read.csv("test_set.csv", stringsAsFactors = FALSE)
+  
+  head(train_data)   # Muestra las primeras filas
+  str(train_data)    # Muestra la estructura del dataset
+  summary(train_data) # Resumen estadístico
+```
+### 1. Use los mismos conjuntos de entrenamiento y prueba que utilizó en las entregas anteriores. 
+
+```{r}
+# 📦 Cargar librerías necesarias
+library(dplyr)
+library(readr)
+
+# 🔄 Fijar semilla para reproducibilidad
+set.seed(123)
+
+# 📂 Cargar los conjuntos de datos previamente usados
+train <- read_csv("train_set.csv")
+test <- read_csv("test_set.csv")
+
+# 👁️ Verificar estructura general y dimensiones
+cat("Observaciones en train:", nrow(train), "\n")
+cat("Observaciones en test:", nrow(test), "\n")
+
+# ✅ Asegurar que la variable de salida es factor
+train$SalePriceCat <- as.factor(train$SalePriceCat)
+test$SalePriceCat <- as.factor(test$SalePriceCat)
+
+# 🔍 Verificar primeras observaciones de interés
+cat("\nPrimeras observaciones:\n")
+print(head(train[, c("SalePrice", "SalePriceCat")]))
+
+# 📊 Frecuencia de clases en el conjunto de entrenamiento
+cat("\nDistribución de SalePriceCat en train:\n")
+print(table(train$SalePriceCat))
+
+# 🔎 Confirmar estructura de la variable objetivo
+cat("\nEstructura de la variable SalePriceCat:\n")
+str(train$SalePriceCat)
+```
+**📄 Exploración inicial de los datos**
+
+Al cargar los conjuntos de datos `train_set.csv` y `test_set.csv`, se obtuvo una salida descriptiva automática proporcionada por la función `read_csv()` del paquete `readr`. Esta salida indica que ambos conjuntos tienen exactamente **84 columnas**, divididas en:
+
+- **42 columnas de tipo carácter (`chr`)**, correspondientes a variables **categóricas**, como `MSZoning`, `Neighborhood`, `BldgType`, entre otras.
+- **42 columnas de tipo numérico (`dbl`)**, como `LotArea`, `OverallQual`, `GrLivArea`, `SalePrice`, etc.
+
+También se observa que:
+
+- El conjunto de entrenamiento contiene **937 observaciones**.
+- El conjunto de prueba contiene **232 observaciones**.
+
+Además, se validó que la variable categórica objetivo `SalePriceCat` (con niveles: `barata`, `media`, `cara`) esté correctamente codificada como factor. La distribución de clases en el conjunto de entrenamiento es **perfectamente balanceada**, con **313 observaciones para "barata"**, **312 para "media"**, y **312 para "cara"**.
+
+Finalmente, se visualizaron las primeras observaciones para comprobar que los valores de `SalePrice` y su categoría `SalePriceCat` coinciden correctamente:
+
+| SalePrice | SalePriceCat |
+|-----------|--------------|
+| 223500    | cara         |
+| 250000    | cara         |
+| 307000    | cara         |
+| 200000    | cara         |
+| 118000    | barata       |
+| 144000    | media        |
+
+**Conclusiones:**
+
+- ✅ **Consistencia asegurada:** Se utilizan los mismos conjuntos que en entregas anteriores, lo que garantiza **reproducibilidad** en los resultados del proyecto.
+
+- ✅ **Balance en clases:** La distribución equitativa entre `barata`, `media` y `cara` es ideal para aplicar modelos de clasificación supervisada sin necesidad de técnicas de rebalanceo.
+
+- ✅ **Preparación adecuada:** La conversión de la variable `SalePriceCat` a **factor** fue exitosa, lo cual es un requisito esencial para los algoritmos de redes neuronales multiclase en `caret`.
+
+- ✅ **Calidad de los datos:** No se detectaron errores de carga ni inconsistencias evidentes en las primeras inspecciones de los datos.
+
+Por lo tanto, **el conjunto de datos está listo para proceder a su transformación y entrenamiento de un modelo RNA** en la siguiente sección.
+
+### 2 	Seleccione como variable respuesta la que creó con las categorías del precio de la casa. 
+
+```{r}
+
+```
+
+### 3. Genere dos modelos de redes neuronales que sean capaz de clasificar usando la variable respuesta que categoriza las casas en baratas, medias y caras. Estos modelos deben tener diferentes topologías y funciones de activación. 
+
+```{r}
+
+```
+
+### 4. Use los modelos para predecir el valor de la variable respuesta. 
+
+```{r}
+
+```
+
+### 5. Haga las matrices de confusión respectivas.
+
+```{r}
+
+```
+
+### 6. Compare los resultados obtenidos con los diferentes modelos de clasificación usando redes neuronales en cuanto a efectividad, tiempo de procesamiento y equivocaciones (donde el algoritmo se equivocó más, donde se equivocó menos y la importancia que tienen los errores). 
+
+```{r}
+
+```
+
+### 7. Analice si no hay sobreajuste en los modelos.  
+
+```{r}
+
+```
+
+### 8. Para el modelo elegido de clasificación tunee los parámetros y discuta si puede mejorar todavía el modelo sin llegar a sobre ajustarlo. 
+
+```{r}
+
+```
+
+### 9. Seleccione ahora el SalesPrice como variable respuesta. 
+
+```{r}
+
+```
+
+### 10. Genere dos modelos de regresión con redes neuronales con diferentes topologías y funciones de activación para predecir el precio de las casas. 
+
+```{r}
+
+```
+
+### 11. Compare los dos modelos de regresión y determine cuál funcionó mejor para predecir el precio de las casas. 
+
+```{r}
+
+```
+
+### 12. Analice si no hay sobreajuste en los modelos. Use para esto la curva de aprendizaje. 
+
+```{r}
+
+```
+
+### 13. Para el modelo elegido de regresión tunee los parámetros y discuta si puede mejorar todavía el modelo sin llegar a sobre ajustarlo.  
+
+```{r}
+
+```
+
+### 14. Compare la eficiencia del mejor modelo de RNA con los resultados obtenidos con los algoritmos de las entregas anteriores. ¿Cuál es mejor para predecir? ¿Cuál se demoró más en procesar? 
+
+```{r}
+
+```
+
+### 15. Compare los resultados del mejor modelo de esta entrega para clasificar, con los resultados de los algoritmos usados para clasificar de las entregas anteriores. 
+
+```{r}
+
+```
+
+### 16. Compare los resultados del mejor modelo para predecir el precio de venta con los resultados de los algoritmos usados para el mismo propósito de las entregas anteriores. 
+
+```{r}
+
+```
+
+### 17. Ahora que ha usado todos los modelos que hemos visto y aplicados al conjunto de datos llegue a conclusiones sobre cual es o cuales son los mejores modelos para clasificar dadas las características del conjunto de datos. ¿Cuál o cuáles son los mejores para predecir el precio de las casas? Elabore una tabla de resumen con las métricas de los modelos que está comparando. 
+
+```{r}
+
+```
+
+### 18. Genere un informe total de la consultoría donde incluya todas las entregas parciales. Debe incluir desde el análisis exploratorio hasta esta entrega. Debe ser un informe general completamente coherente, sin subtítulos relacionados con las instrucciones de las actividades de las entregas. Debe ser un informe formal, que pueda ser presentado a los directivos de la compañía. 
+
+```{r}
+
+```
+
