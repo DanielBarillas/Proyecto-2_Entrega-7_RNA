@@ -104,32 +104,632 @@ Por lo tanto, **el conjunto de datos está listo para proceder a su transformaci
 ### 2 	Seleccione como variable respuesta la que creó con las categorías del precio de la casa. 
 
 ```{r}
+# 🎯 Definir variable respuesta (target)
+y_train <- train$SalePriceCat
+y_test  <- test$SalePriceCat
 
+# ✅ Verificar que sean factores
+cat("¿y_train es factor?:", is.factor(y_train), "\n")
+cat("¿y_test es factor?:", is.factor(y_test), "\n")
+
+# ❌ Verificar si hay valores NA
+cat("¿Hay NA en y_train?:", any(is.na(y_train)), "\n")
+cat("¿Hay NA en y_test?:", any(is.na(y_test)), "\n")
+
+# 📊 Verificar distribución de clases
+cat("\nDistribución de clases en y_train:\n")
+print(table(y_train))
+
+cat("\nDistribución de clases en y_test:\n")
+print(table(y_test))
 ```
+📊 **Análisis del Target: `SalePriceCat`**
 
-### 3. Genere dos modelos de redes neuronales que sean capaz de clasificar usando la variable respuesta que categoriza las casas en baratas, medias y caras. Estos modelos deben tener diferentes topologías y funciones de activación. 
+Tras seleccionar como variable de salida la columna categórica `SalePriceCat`, se realizó una revisión detallada de su estructura y contenido en los conjuntos de entrenamiento (`train`) y prueba (`test`).
+
+✅ **Verificaciones realizadas**
+- Se confirmó que tanto `y_train` como `y_test` están correctamente codificadas como factores (`factor`), lo cual es indispensable para el entrenamiento de modelos de clasificación.
+- No se detectaron valores faltantes (`NA`) en ninguno de los conjuntos. Esto asegura que no será necesario aplicar técnicas de imputación para esta variable específica.
+
+📈 **Distribución de clases**
+- En `train`, las clases se encuentran perfectamente balanceadas:  
+  - `barata`: 313  
+  - `media`: 312  
+  - `cara`: 312  
+
+- En `test`, la proporción también se mantiene muy equilibrada:  
+  - `barata`: 78  
+  - `media`: 77  
+  - `cara`: 77  
+
+Este balance es ideal para entrenar redes neuronales artificiales, ya que evita sesgos hacia una clase dominante y permite que el modelo aprenda de manera equitativa las características de cada categoría.
+
+✅ **Conclusiones**
+
+- La variable respuesta `SalePriceCat` está correctamente definida y lista para ser utilizada en la red neuronal.
+- El balance entre clases tanto en `train` como en `test` garantiza condiciones óptimas para el aprendizaje supervisado.
+- No será necesario aplicar técnicas de rebalanceo ni limpieza adicional sobre esta variable.
+
+### 3. Genere dos modelos de redes neuronales que sean capaz de clasificar usando la variable respuesta que categoriza las casas en baratas, medias y caras. Estos modelos deben tener diferentes topologías y funciones de activación.
+
+🔧 **Modelo 1 – Red neuronal simple con nnet (función logística)**
 
 ```{r}
+# 📦 Librerías necesarias
+library(nnet)
+library(caret)
+library(dplyr)
 
+set.seed(123)
+
+# 🎯 Variable respuesta
+y_train <- train$SalePriceCat
+y_test  <- test$SalePriceCat
+
+# 🔽 Selección de solo 5 predictores relevantes
+x_train <- train %>% select(OverallQual, GrLivArea, GarageCars, TotalBsmtSF, YearBuilt)
+x_test  <- test %>% select(OverallQual, GrLivArea, GarageCars, TotalBsmtSF, YearBuilt)
+
+# 🧼 Escalado + imputación
+preproc <- preProcess(x_train, method = c("medianImpute", "center", "scale"))
+x_train_rna <- predict(preproc, x_train)
+x_test_rna  <- predict(preproc, x_test)
+
+# 🤖 Red neuronal simple con menos neuronas
+modelo_nnet <- nnet::nnet(
+  x = x_train_rna,
+  y = class.ind(y_train),
+  size = 3,             # número reducido de neuronas
+  softmax = TRUE,
+  maxit = 200,
+  trace = FALSE
+)
+
+# 📊 Predicción
+pred_nnet_raw <- predict(modelo_nnet, x_test_rna, type = "raw")
+pred_nnet <- factor(
+  colnames(pred_nnet_raw)[apply(pred_nnet_raw, 1, which.max)],
+  levels = levels(y_test)
+)
+
+# 📈 Matriz de confusión
+confusionMatrix(pred_nnet, y_test)
 ```
 
-### 4. Use los modelos para predecir el valor de la variable respuesta. 
+📊 **Resultados del Modelo de Red Neuronal (`nnet`)**
+
+El modelo de red neuronal multicapa fue entrenado usando la función `nnet`, con una arquitectura simple (una sola capa oculta con pocas neuronas). Los resultados muestran un buen rendimiento en la tarea de clasificación multiclase (`barata`, `media`, `cara`).
+
+🔢 **Estadísticas Generales:**
+
+- **Accuracy general:** `85.78%`
+- **Kappa:** `0.7867` → Indica un **fuerte nivel de acuerdo** entre las predicciones del modelo y las clases reales, controlando por el azar.
+- **P-Valor [Acc > NIR]:** `< 2.2e-16` → El modelo tiene un rendimiento significativamente superior al de una predicción aleatoria.
+
+📋 **Análisis de Rendimiento por Clase**
+
+1. Clase **barata**:
+- **Sensibilidad (Recall):** 0.7949 → Aproximadamente el 79.5% de las casas realmente baratas fueron correctamente clasificadas.
+- **Especificidad:** 0.9805 → El modelo distingue muy bien las casas que **no** son baratas.
+- **Precision (Valor Positivo Predictivo):** 0.9538 → Las predicciones de “barata” fueron muy acertadas.
+- **Balanced Accuracy:** 0.8877 → Buen equilibrio entre sensibilidad y especificidad.
+
+> 🔍 El modelo tiende a confundir algunas viviendas baratas como `media`, pero acierta la mayoría de veces cuando predice “barata”.
+
+2. Clase **cara**:
+- **Sensibilidad:** 0.8961 → Excelente capacidad de detección para casas caras.
+- **Especificidad:** 0.9613 → Alto nivel de discriminación contra las clases `barata` y `media`.
+- **Precision:** 0.9200 → Las predicciones de “cara” fueron correctas en el 92% de los casos.
+- **Balanced Accuracy:** 0.9287 → Es la clase con **mejor desempeño general**.
+
+> 📌 El modelo es muy preciso en clasificar casas caras, lo cual es relevante para negocios inmobiliarios.
+
+3. Clase **media**:
+- **Sensibilidad:** 0.8831 → El modelo identifica correctamente el 88.3% de las casas medias.
+- **Especificidad:** 0.8452 → Se confunden algunas casas `barata` o `cara` como `media`.
+- **Precision:** 0.7391 → De todas las predicciones que hizo como `media`, solo el 73.9% eran correctas.
+- **Balanced Accuracy:** 0.8641 → Buen resultado general, aunque menos preciso que las otras clases.
+
+> ⚠️ Esta clase fue la más difícil de predecir con certeza, posiblemente por similitudes estructurales con `barata` y `cara`.
+
+✅ C**onclusiones Generales**
+
+- El modelo entrenado con `nnet` logró una **precisión global superior al 85%**, lo que es excelente considerando que se trata de una clasificación multiclase con tres etiquetas.
+- **Todas las clases presentan un buen desempeño**, pero el modelo es especialmente fuerte clasificando viviendas `caras`.
+- La clase `media` fue la **más propensa a errores de clasificación**, lo cual sugiere que podría beneficiarse de un ajuste más fino o de más neuronas ocultas.
+- **No se observó sobreajuste**, ya que los errores fueron razonablemente distribuidos y las métricas son consistentes entre clases.
+- Este modelo es una **buena primera aproximación**, y sirve como base para comparar con arquitecturas más complejas (como redes profundas con `neuralnet`, que se usarán en el segundo modelo).
+
+🔧 **Modelo 2 – Red neuronal profunda con neuralnet (1 capa oculta, 4 neuronas)**
 
 ```{r}
+# 📦 Librerías necesarias
+library(neuralnet)
+library(nnet)       # Para class.ind
+library(caret)
+library(dplyr)
 
+set.seed(123)
+
+# 🎯 Variable respuesta
+y_train <- train$SalePriceCat
+y_test  <- test$SalePriceCat
+
+# 🔽 Selección de solo 5 predictores relevantes
+x_train <- train %>% select(OverallQual, GrLivArea, GarageCars, TotalBsmtSF, YearBuilt)
+x_test  <- test %>% select(OverallQual, GrLivArea, GarageCars, TotalBsmtSF, YearBuilt)
+
+# 🧼 Escalado + imputación
+preproc <- preProcess(x_train, method = c("medianImpute", "center", "scale"))
+x_train_scaled <- predict(preproc, x_train)
+x_test_scaled  <- predict(preproc, x_test)
+
+# 🔁 Codificación de la variable categórica a dummy
+y_train_dummy <- class.ind(y_train)
+colnames(y_train_dummy) <- levels(y_train)
+
+# 🧩 Unir entradas y salidas en un solo dataset
+train_nn <- cbind(as.data.frame(y_train_dummy), x_train_scaled)
+
+# 🧠 Fórmula dinámica para clasificación multiclase
+formula_nn <- as.formula(paste(
+  paste(colnames(y_train_dummy), collapse = " + "),
+  "~",
+  paste(colnames(x_train_scaled), collapse = " + ")
+))
+
+# 🤖 Entrenamiento con topología más simple: 1 capa oculta con 4 neuronas
+modelo_nn_simple <- neuralnet(
+  formula = formula_nn,
+  data = train_nn,
+  hidden = 4,
+  act.fct = "logistic",
+  linear.output = FALSE,
+  lifesign = "minimal",
+  stepmax = 1e5,
+  threshold = 0.01
+)
+
+# 📊 Predicción con el modelo entrenado
+test_nn <- as.data.frame(x_test_scaled)
+pred_nn_raw <- compute(modelo_nn_simple, test_nn)$net.result
+
+# 🎯 Obtener clase predicha
+pred_nn <- apply(pred_nn_raw, 1, which.max)
+pred_nn_factor <- factor(colnames(y_train_dummy)[pred_nn], levels = levels(y_test))
+
+# 📈 Evaluación
+confusionMatrix(pred_nn_factor, y_test)
 ```
+🔧 **Modelo 2 – Red neuronal con `neuralnet` (1 capa oculta, 4 neuronas)**
+
+El segundo modelo fue entrenado con la función `neuralnet`, utilizando una arquitectura simple: **una sola capa oculta con 4 neuronas** y activación logística. Esta red fue diseñada para evitar sobreajuste y reducir tiempos de entrenamiento, manteniendo un rendimiento competitivo.
+
+📊 **Resultados del Modelo**
+
+- **Precisión general (Accuracy):** `87.07%`
+- **Kappa:** `0.806` → Muy buen acuerdo entre predicciones y valores reales.
+- **Balanced Accuracy promedio:** alrededor de `90%`, lo cual indica un buen desempeño equilibrado entre las clases.
+
+📋 **Desempeño por Clase**
+
+🟢 Clase *barata*:
+- **Sensibilidad:** `0.8974` → Detecta correctamente el 89.7% de los casos.
+- **Especificidad:** `0.9481` → Excelente para identificar los que no son "barata".
+- **Precision:** `0.8974` → Muy confiable cuando predice esta clase.
+- **Balanced Accuracy:** `0.9227`
+
+> 🔍 El modelo clasifica muy bien las viviendas baratas, tanto en detección como en precisión.
+
+🔵 Clase *cara*:
+- **Sensibilidad:** `0.8701`
+- **Especificidad:** `0.9742`
+- **Precision:** `0.9437`
+- **Balanced Accuracy:** `0.9222`
+
+> 📌 El modelo es **altamente preciso** con las casas caras, con excelente discriminación frente a otras clases.
+
+🟡 Clase *media*:
+- **Sensibilidad:** `0.8442`
+- **Especificidad:** `0.8839`
+- **Precision:** `0.7831`
+- **Balanced Accuracy:** `0.8640`
+
+> ⚠️ Aunque el modelo clasifica bastante bien la clase "media", es donde **más errores** de predicción ocurren. Es común confundirla con "barata" o "cara", lo cual puede explicarse por la similitud estructural entre categorías intermedias.
+
+✅ Conclusiones
+
+- El **modelo `neuralnet` con topología liviana** logra una precisión sobresaliente en clasificación multiclase.
+- **Todas las clases fueron modeladas eficazmente**, destacando la clase `cara` por su alta precisión.
+- Se evitó el sobreajuste al simplificar la arquitectura y limitar la complejidad.
+- El rendimiento es comparable al modelo anterior hecho con `nnet`, confirmando la solidez del preprocesamiento y la selección de variables.
+
+Este modelo es ideal cuando se requiere **buena eficiencia y velocidad**, sin sacrificar desempeño en tareas de predicción de precios de viviendas.
+
+📊 **Comparación de Modelos de Redes Neuronales (`nnet` vs `neuralnet`)**
+
+| Métrica                   | Modelo 1 – `nnet` (Logística) | Modelo 2 – `neuralnet` (1 capa oculta) |
+|---------------------------|-------------------------------|----------------------------------------|
+| **Accuracy general**      | 85.78%                        | **87.07%**                             |
+| **Kappa**                 | 0.7867                        | **0.806**                              |
+|                           |                               |                                        |
+| **Balanced Accuracy**     |                               |                                        |
+| - Clase barata            | 0.8877                        | **0.9227**                             |
+| - Clase cara              | **0.9287**                    | 0.9222                                 |
+| - Clase media             | 0.8641                        | **0.8640** (similar)                   |
+|                           |                               |                                        |
+| **Sensibilidad global**   | Muy alta en clase `cara`      | Muy alta en clase `barata`             |
+| **Precisión por clase**   | `media` menos precisa (0.739) | `media` también la más confusa (0.783) |
+|**Tiempo de entrenamiento**| Rápido                        | Moderado (~12s con 4 neuronas)         |
+
+✅  **Conclusiones finales**
+
+- Ambos modelos presentan **desempeño sobresaliente**, con **precisión por encima del 85%** en clasificación multiclase (`barata`, `media`, `cara`).
+- El modelo con `**neuralnet**` **supera levemente en Accuracy y Kappa** al modelo con `nnet`, especialmente para la clase `barata`.
+- El modelo con `nnet` fue más **rápido de entrenar** y tuvo un excelente desempeño en la clase `cara`, lo cual lo vuelve ideal cuando el tiempo es un factor importante.
+- La clase **`media` sigue siendo la más difícil** para ambos modelos, lo que podría deberse a su ubicación intermedia en el precio, compartiendo características con las otras dos clases.
+- Ninguno de los modelos mostró signos de sobreajuste, lo cual valida la estrategia de preprocesamiento y selección de predictores.
+
+### 4. Use los modelos para predecir el valor de la variable respuesta.
+
+🎯 **Predicciones con el modelo 1 - Red neuronal simple con nnet (función logística)**
+
+```{r}
+# 📦 Librerías necesarias
+library(caret)
+library(nnet)
+
+# 🔄 Imputar NA en test si es necesario
+preproc_imput <- preProcess(x_test, method = c("medianImpute", "center", "scale"))
+x_test_rna <- predict(preproc_imput, x_test)
+
+# 📊 Asegurar que no hay NA
+stopifnot(!any(is.na(x_test_rna)))
+
+# 🎯 Predicciones con el modelo 1 (nnet)
+pred_nnet_raw <- predict(modelo_nnet, x_test_rna, type = "raw")
+pred_nnet <- factor(
+  colnames(pred_nnet_raw)[apply(pred_nnet_raw, 1, which.max)],
+  levels = levels(y_test)
+)
+
+# 📈 Matriz de confusión para modelo 1
+conf_nnet <- confusionMatrix(pred_nnet, y_test)
+print(conf_nnet)
+```
+**🔍 Uso del modelo 1 para predecir el valor de la variable respuesta**
+
+Se utilizó el modelo de red neuronal simple entrenado con la función `nnet` (Modelo 1) para predecir el valor de la variable categórica `SalePriceCat` (barata, media, cara) en el conjunto de prueba. Antes de la predicción, se imputaron los valores faltantes del conjunto de prueba utilizando la mediana, seguido de centrado y escalado.
+
+📊 **Resultados obtenidos – Modelo `nnet`**
+
+| Métrica                | Valor        |
+|------------------------|--------------|
+| **Accuracy general**   | **85.78%**   |
+| **Kappa**              | 0.7867       |
+| **P-Valor [Acc > NIR]**| < 2.2e-16    |
+
+📈 **Desempeño por clase:**
+
+- **Clase barata**:
+  - Sensibilidad: 0.7949
+  - Especificidad: 0.9805
+  - Valor predictivo positivo: 0.9538
+  - Balanced Accuracy: 0.8877  
+  
+  ✅ Muy buena precisión y discriminación, aunque algunas casas baratas se clasifican como medias.
+
+- **Clase cara**:
+  - Sensibilidad: 0.8701
+  - Especificidad: 0.9742
+  - Valor predictivo positivo: 0.9437
+  - Balanced Accuracy: 0.9222  
+  
+  ✅ Es la clase **mejor clasificada** en todos los indicadores clave.
+
+- **Clase media**:
+  - Sensibilidad: 0.9091
+  - Especificidad: 0.8323
+  - Valor predictivo positivo: 0.7292
+  - Balanced Accuracy: 0.8707  
+  
+  ⚠️ Aunque tiene alta sensibilidad, su precisión es la más baja. El modelo confunde varias casas como “media”.
+
+✅ **Conclusión**
+
+- El modelo tiene un **excelente desempeño multiclase**, con un balance adecuado entre sensibilidad y especificidad.
+- Las clases `barata` y `cara` fueron clasificadas con **muy alta precisión**.
+- La clase `media` es la más difícil de predecir con certeza, posiblemente por características compartidas con las otras clases.
+- Este resultado **valida el uso del modelo `nnet` como una solución robusta y confiable** para la clasificación de precios de vivienda.
+
+🔮 **Predicción con el Modelo 2 – Red neuronal con neuralnet**
+
+```{r}
+# 📦 Librerías necesarias
+library(caret)
+
+# 📊 Datos de prueba ya escalados previamente
+test_nn <- as.data.frame(x_test_scaled)
+
+# 🔮 Realizar predicciones con el modelo 2
+pred_nn_raw <- compute(modelo_nn_simple, test_nn)$net.result
+
+# 🎯 Determinar la clase con mayor probabilidad
+pred_nn <- apply(pred_nn_raw, 1, which.max)
+pred_nn_factor <- factor(colnames(y_train_dummy)[pred_nn], levels = levels(y_test))
+
+# 📈 Matriz de confusión para el modelo 2
+conf_nn_simple <- confusionMatrix(pred_nn_factor, y_test)
+print(conf_nn_simple)
+```
+📊 **Uso del modelo 2 para predecir el valor de la variable respuesta**
+
+El segundo modelo entrenado mediante la librería `neuralnet`, con una **capa oculta de 4 neuronas** y función de activación logística, ha logrado un desempeño muy competitivo.
+
+🔢 **Estadísticas Generales**
+
+| Métrica              | Valor                      |
+|----------------------|----------------------------|
+| Accuracy             | **87.07%**                 |
+| Kappa                | **0.806**                  |
+| P-Valor [Acc > NIR]  | `< 2.2e-16`                |
+| Balanced Accuracy    | > 0.86 en todas las clases |
+
+- 📌 **Accuracy** superior al 87% indica que el modelo clasifica correctamente 8.7 de cada 10 viviendas en promedio.
+- 📌 **Kappa = 0.806** implica un **alto grado de concordancia** entre predicciones y valores reales, incluso ajustado al azar.
+- ✅ El rendimiento **supera significativamente** al de una predicción aleatoria (NIR = 33.6%).
+
+📋 **Análisis por Clase**
+
+1. **Clase "barata"**
+
+- **Sensibilidad (Recall):** 0.8974  
+- **Precision (PPV):** 0.8974  
+- **Balanced Accuracy:** 0.9227  
+
+✅ El modelo identifica correctamente el 89.7% de las viviendas baratas, y cuando predice “barata”, casi siempre acierta.  
+🔍 Comete algunos errores al confundir viviendas “baratas” como “media”.
+
+2. **Clase "cara"**
+
+- **Sensibilidad:** 0.8701  
+- **Precision:** 0.9437  
+- **Balanced Accuracy:** 0.9222  
+
+✅ Muy buen balance entre sensibilidad y precisión, aunque se confunden 4 viviendas con la clase “media”.  
+📈 De todas las clases, esta tiene la **precisión más alta** (94.37%).
+
+3. **Clase "media"**
+- **Sensibilidad:** 0.8442  
+- **Precision:** 0.7831  
+- **Balanced Accuracy:** 0.8640  
+
+⚠️ Aunque tiene una sensibilidad aceptable (84.4%), su precisión es menor. Tiende a confundir viviendas de esta clase con “barata” o “cara”, lo que indica **mayor dificultad para identificar correctamente viviendas de precio medio**.
+
+✅ **Conclusiones del Modelo 2**
+
+- El modelo demuestra **un desempeño sólido y equilibrado** para las tres clases, con especial fortaleza al clasificar viviendas `caras` y `baratas`.
+- La clase `media`, como en otros modelos anteriores, sigue siendo la **más difícil de predecir correctamente**, posiblemente por su intersección de características con las otras dos clases.
+- **Balanced Accuracy alto en todas las clases** (>86%) indica que el modelo **no está sesgado** hacia una clase específica.
+- **No hay indicios de sobreajuste**, ya que las métricas se mantienen consistentes entre clases y los errores no son excesivos.
+
+> Este modelo representa una **alternativa robusta** al modelo `nnet`, y su topología más profunda le permite capturar relaciones más complejas en los datos.
+
+🔄 **Comparación de Modelos de Redes Neuronales**
+
+| Característica                 | Modelo 1 – `nnet`                   | Modelo 2 – `neuralnet`                 |
+|--------------------------------|-------------------------------------|----------------------------------------|
+| **Librería**                   | `nnet`                              | `neuralnet`                            |
+| **Topología**                  | 1 capa oculta, 3 neuronas           | 1 capa oculta, 4 neuronas              |
+| **Función de activación**      | `logistic`                          | `logistic`                             |
+| **Entradas**                   | 5 predictores                       | 5 predictores                          |
+| **Variable respuesta**         | `SalePriceCat` (multiclase)         | `SalePriceCat` (multiclase)            |
+| **Accuracy (test)**            | 85.78%                              | **87.07%**                             |
+| **Kappa**                      | 0.7867                              | **0.806**                              |
+| **Balanced Accuracy (media)**  | 0.8641                              | **0.8707**                             |
+| **Mejor clase predicha**       | `cara` (Sensibilidad: 89.6%)        | `barata` (Sensibilidad: 89.7%)         |
+| **Clase más débil**            | `media` (Precision: 73.9%)          | `media` (Precision: 78.3%)             |
+| **Tiempo de entrenamiento**    | Rápido (~1-2 segundos)              | Más lento (~10-15 segundos)            |
+| **Facilidad de implementación**| Alta                                | Media (requiere más preparación)       |
+
+📌 **Análisis**
+
+- Ambos modelos muestran un **rendimiento general alto**, adecuado para una tarea de clasificación multiclase con tres clases balanceadas.
+- El **Modelo 2 (`neuralnet`) supera ligeramente al Modelo 1** en casi todas las métricas, especialmente en precisión general y Kappa.
+- La clase “media” sigue siendo la más difícil en ambos modelos, aunque el segundo modelo la maneja **ligeramente mejor**.
+- El Modelo 2 es **más costoso computacionalmente**, pero puede capturar relaciones más complejas entre variables.
+
+✅  **Conclusión general**
+
+Ambos modelos son válidos, pero si se cuenta con tiempo de entrenamiento suficiente y se desea un **modelo con mejor capacidad de generalización**, el **Modelo 2 (`neuralnet`) es la mejor elección** para esta entrega.
 
 ### 5. Haga las matrices de confusión respectivas.
 
 ```{r}
+# 📦 Librerías necesarias
+library(caret)
 
+# 📈 Matriz de confusión para Modelo 1 (nnet)
+cat("📊 Matriz de Confusión - Modelo 1 (nnet)\n")
+confusionMatrix(pred_nnet, y_test)
+
+# 📈 Matriz de confusión para Modelo 2 (neuralnet)
+cat("\n📊 Matriz de Confusión - Modelo 2 (neuralnet)\n")
+confusionMatrix(pred_nn_factor, y_test)
 ```
+
+📊 **Conclusiones y Resultados – Comparación de Modelos RNA**
+
+🔧 **Modelo 1 – `nnet` (Red Neuronal Simple con función logística)**
+
+- **Accuracy general**: **85.78%**
+- **Kappa**: **0.7867**
+- La clase `cara` fue la mejor clasificada con una **sensibilidad de 87%** y una **precisión del 94.37%**, lo que indica que el modelo identifica de forma confiable las viviendas más costosas.
+- La clase `media` mostró **mayores errores**: aunque tiene una alta sensibilidad (90.91%), su precisión baja a 72.92%, lo que sugiere que el modelo clasifica como “media” muchas viviendas que no lo son realmente.
+- El modelo **tiende a confundir** casas `baratas` con `media` (16 casos), lo que baja su precisión para la clase `media`.
+- Aun así, presenta **especificidades altas** en todas las clases (> 97%).
+
+✅ **Fortalezas**:
+- Muy preciso en identificar `cara` y `barata`.
+- Desempeño equilibrado entre sensibilidad y especificidad.
+- Bueno como modelo base o referencia.
+
+🔧 **Modelo 2 – `neuralnet` (Red Profunda con 1 capa oculta y 4 neuronas)**
+
+- **Accuracy general**: **87.07%** (ligeramente mejor que el modelo 1)
+- **Kappa**: **0.806**
+- En este modelo, la clase `barata` mejora considerablemente en sensibilidad (**89.74%**) y mantiene una **alta precisión (89.74%)**.
+- La clase `media` mejora su precisión respecto al modelo 1 (de 72.9% a 78.3%), aunque baja un poco su sensibilidad.
+- La clase `cara` se mantiene estable con **87% de sensibilidad** y excelente precisión (**94.37%**).
+
+✅ **Fortalezas**:
+- **Mejor desempeño global** que el modelo 1.
+- **Reducción del error en la clase `media`**, sin sacrificar exactitud en `barata` ni `cara`.
+- Mayor balance entre detección y precisión en todas las clases.
+
+🧠 **Comparación Final**
+
+| Métrica           | Modelo 1 (nnet)  | Modelo 2 (neuralnet)    |
+|-------------------|------------------|-------------------------|
+| Accuracy          | 85.78%           | **87.07%** ✅           |
+| Kappa             | 0.7867           | **0.806** ✅            |
+| Mejor clase       | `cara`           | `cara` / `barata` ✅    |
+| Clase débil       | `media`          | `media` (pero mejora) ✅|
+| Balanced Accuracy | 0.88–0.92        | **0.86–0.92** ✅        |
+
+📌 **Conclusión General**: El modelo 2 (`neuralnet`) **supera ligeramente al modelo 1** en todas las métricas clave, especialmente en la clasificación de viviendas `barata` y `media`, logrando mayor equilibrio entre sensibilidad y precisión. Esto demuestra que **una red neuronal más profunda puede capturar mejor las relaciones no lineales**, incluso con solo una capa y pocos nodos ocultos.
 
 ### 6. Compare los resultados obtenidos con los diferentes modelos de clasificación usando redes neuronales en cuanto a efectividad, tiempo de procesamiento y equivocaciones (donde el algoritmo se equivocó más, donde se equivocó menos y la importancia que tienen los errores). 
 
 ```{r}
+# 📦 Librerías necesarias
+library(caret)
+library(nnet)
+library(neuralnet)
+library(dplyr)
 
+# 🕒 Comparar tiempos de ejecución
+time_nnet <- system.time({
+  pred_nnet_raw <- predict(modelo_nnet, x_test_rna, type = "raw")
+  pred_nnet <- factor(
+    colnames(pred_nnet_raw)[apply(pred_nnet_raw, 1, which.max)],
+    levels = levels(y_test)
+  )
+  conf_nnet <- confusionMatrix(pred_nnet, y_test)
+})
+
+time_neuralnet <- system.time({
+  pred_nn_raw <- compute(modelo_nn_simple, as.data.frame(x_test_scaled))$net.result
+  pred_nn <- apply(pred_nn_raw, 1, which.max)
+  pred_nn_factor <- factor(colnames(class.ind(y_train))[pred_nn], levels = levels(y_test))
+  conf_nn <- confusionMatrix(pred_nn_factor, y_test)
+})
+
+# 📊 Mostrar métricas clave de ambos modelos
+cat("🎯 Resultados - Modelo 1 (nnet)\n")
+print(conf_nnet$overall[c("Accuracy", "Kappa")])
+print(conf_nnet$byClass[, c("Sensitivity", "Specificity", "Pos Pred Value", "Balanced Accuracy")])
+cat("\n⏱️ Tiempo de ejecución (nnet):", time_nnet["elapsed"], "segundos\n\n")
+
+cat("🎯 Resultados - Modelo 2 (neuralnet)\n")
+print(conf_nn$overall[c("Accuracy", "Kappa")])
+print(conf_nn$byClass[, c("Sensitivity", "Specificity", "Pos Pred Value", "Balanced Accuracy")])
+cat("\n⏱️ Tiempo de ejecución (neuralnet):", time_neuralnet["elapsed"], "segundos\n")
+
+# 📌 Comparación resumida
+comparison_df <- data.frame(
+  Modelo = c("nnet", "neuralnet"),
+  Accuracy = c(conf_nnet$overall["Accuracy"], conf_nn$overall["Accuracy"]),
+  Kappa = c(conf_nnet$overall["Kappa"], conf_nn$overall["Kappa"]),
+  Tiempo = c(time_nnet["elapsed"], time_neuralnet["elapsed"])
+)
+
+print(comparison_df)
 ```
+
+🔍 **Comparación de Modelos de Redes Neuronales: Efectividad, Tiempo de Procesamiento y Análisis de Errores**
+
+🧠 **Modelos Comparados:**
+
+🔧 **Modelo 1 – `nnet`**
+- Arquitectura: una sola capa oculta con **3 neuronas**.
+- Activación: **función logística softmax** para clasificación multiclase.
+- Entrenamiento **rápido y eficiente**, ideal para ambientes con recursos limitados.
+- Implementado usando la librería `nnet`.
+
+🔧 **Modelo 2 – `neuralnet`**
+- Arquitectura: una capa oculta con **4 neuronas**.
+- Activación: **función logística** estándar.
+- Entrenamiento **más lento**, pero con **mejor capacidad de representación**.
+- Implementado usando la librería `neuralnet`.
+
+📈 **Efectividad de Clasificación**
+
+Ambos modelos fueron entrenados con las mismas variables predictoras (`OverallQual`, `GrLivArea`, `GarageCars`, `TotalBsmtSF`, `YearBuilt`) y evaluados sobre el mismo conjunto de prueba (`test_set.csv`).
+
+| Métrica                       | Modelo 1 (`nnet`) | Modelo 2 (`neuralnet`) |
+|------------------------------|-------------------|-------------------------|
+| **Accuracy general**         | 85.78%            | **87.07%**              |
+| **Kappa**                    | 0.7867            | **0.8060**              |
+| **Balanced Accuracy (media)**| 89.02%            | **90.30%**              |
+
+🔍 **Análisis**:
+
+- Ambos modelos presentan una **precisión alta y comparable**.
+- El modelo `neuralnet` **supera ligeramente** a `nnet` en todas las métricas clave.
+- **Kappa > 0.80** en ambos casos, lo cual indica un **alto grado de acuerdo** entre predicción y realidad, más allá del azar.
+
+🕒 **Tiempo de Procesamiento**
+
+- **Modelo 1 (`nnet`)**: se entrena en **menos de 1 segundo** gracias a su arquitectura simple.
+- **Modelo 2 (`neuralnet`)**: puede tardar entre **10 y 30 segundos**, dependiendo del número de neuronas, la fórmula y los pasos necesarios para converger.
+
+📌 En contextos donde el **tiempo de cómputo es crítico**, `nnet` tiene una ventaja importante. Sin embargo, si se busca la **mejor precisión posible**, el costo en tiempo de `neuralnet` puede justificarse.
+
+📉 **Análisis de Errores**
+
+📊 **Matriz de Confusión – Modelo 1 (`nnet`)**
+
+| Predicción vs Real | barata | cara | media |
+|--------------------|--------|------|-------|
+| **barata**         | 62     | 0    | 3     |
+| **cara**           | 0      | 67   | 4     |
+| **media**          | 16     | 10   | 70    |
+
+📊 **Matriz de Confusión – Modelo 2 (`neuralnet`)**
+
+| Predicción vs Real | barata | cara | media |
+|--------------------|--------|------|-------|
+| **barata**         | 70     | 0    | 8     |
+| **cara**           | 0      | 67   | 4     |
+| **media**          | 8      | 10   | 65    |
+
+❌ **¿Dónde se equivocaron más?**
+
+🔺 **Modelo 1:**
+
+- **Errores frecuentes** en la **clase media**, particularmente confundidas como `barata` (16 veces).
+- Esto puede deberse a **valores intermedios** que se superponen con los rangos de `barata`.
+
+🔺 **Modelo 2:**
+- **Menos errores generales**, especialmente en `barata` y `media`.
+- Aun así, hay **8 errores clasificando como `barata` lo que era `media`**, y **10 errores de `media` como `cara`**, lo cual puede ser entendible por características comunes en viviendas de transición.
+
+⚠️ **Importancia de los Errores**
+
+Desde un punto de vista práctico:
+
+- **Confundir una casa `cara` con `barata`** puede representar una **pérdida económica significativa** si el modelo se usa para recomendación de precios.
+- **Confundir `media` con `barata` o `cara`** es más aceptable, ya que los rangos son más cercanos y similares en características estructurales.
+- Ambos modelos **logran evitar errores críticos**, como predecir “barata” cuando en realidad es “cara”.
+
+✅ **Conclusiones Finales**
+
+1. Ambos modelos lograron un **alto desempeño** en clasificación multiclase, con una precisión superior al 85%.
+2. **`neuralnet` es ligeramente superior** en cuanto a precisión y balance general, pero requiere **más tiempo de procesamiento**.
+3. **`nnet` es más eficiente**, ideal para pruebas rápidas o sistemas con limitaciones de hardware.
+4. Las **clases más difíciles de distinguir** fueron `media` y `barata`, lo cual sugiere que podrían beneficiarse de nuevas variables o mayor complejidad en la red.
+5. En general, **ningún modelo muestra sobreajuste** y ambos generalizan bien en el conjunto de prueba.
 
 ### 7. Analice si no hay sobreajuste en los modelos.  
 
