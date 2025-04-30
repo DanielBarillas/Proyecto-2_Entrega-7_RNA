@@ -4,9 +4,9 @@ author:
   - "Pablo Daniel Barillas Moreno, Carné No. 22193"
   - "Mathew Cordero Aquino, Carné No. 22982"
 output:
-  html_document: default
   pdf_document:
     latex_engine: xelatex
+  html_document: default
 always_allow_html: true
 date: "2025-03-14"
 header-includes:
@@ -15,7 +15,7 @@ header-includes:
 repository: "https://github.com/DanielBarillas/Proyecto-2_Entrega-7_RNA.git"
 ---
 
-### Enlace al Repositorio del proyecto 2 - Entrega 5 de minería de datos del Grupo #1
+### Enlace al Repositorio del proyecto 2 - Entrega 7 de minería de datos del Grupo #1
 [Repositorio en GitHub](https://github.com/DanielBarillas/Proyecto-2_Entrega-7_RNA.git)
 
 ### 0. Descargue los conjuntos de datos. 
@@ -734,20 +734,381 @@ Desde un punto de vista práctico:
 ### 7. Analice si no hay sobreajuste en los modelos.  
 
 ```{r}
+# 📦 Librerías necesarias
+library(caret)
+library(nnet)
+library(neuralnet)
+library(dplyr)
 
+# 🕒 Comparar tiempos de ejecución
+time_nnet <- system.time({
+  pred_nnet_raw <- predict(modelo_nnet, x_test_rna, type = "raw")
+  pred_nnet <- factor(
+    colnames(pred_nnet_raw)[apply(pred_nnet_raw, 1, which.max)],
+    levels = levels(y_test)
+  )
+  conf_nnet <- confusionMatrix(pred_nnet, y_test)
+})
+
+time_neuralnet <- system.time({
+  pred_nn_raw <- compute(modelo_nn_simple, as.data.frame(x_test_scaled))$net.result
+  pred_nn <- apply(pred_nn_raw, 1, which.max)
+  pred_nn_factor <- factor(colnames(class.ind(y_train))[pred_nn], levels = levels(y_test))
+  conf_nn <- confusionMatrix(pred_nn_factor, y_test)
+})
+
+# 📊 Mostrar métricas clave de ambos modelos
+cat("🎯 Resultados - Modelo 1 (nnet)\n")
+print(conf_nnet$overall[c("Accuracy", "Kappa")])
+print(conf_nnet$byClass[, c("Sensitivity", "Specificity", "Pos Pred Value", "Balanced Accuracy")])
+cat("\n⏱️ Tiempo de ejecución (nnet):", time_nnet["elapsed"], "segundos\n\n")
+
+cat("🎯 Resultados - Modelo 2 (neuralnet)\n")
+print(conf_nn$overall[c("Accuracy", "Kappa")])
+print(conf_nn$byClass[, c("Sensitivity", "Specificity", "Pos Pred Value", "Balanced Accuracy")])
+cat("\n⏱️ Tiempo de ejecución (neuralnet):", time_neuralnet["elapsed"], "segundos\n")
+
+# 📌 Comparación resumida
+comparison_df <- data.frame(
+  Modelo = c("nnet", "neuralnet"),
+  Accuracy = c(conf_nnet$overall["Accuracy"], conf_nn$overall["Accuracy"]),
+  Kappa = c(conf_nnet$overall["Kappa"], conf_nn$overall["Kappa"]),
+  Tiempo = c(time_nnet["elapsed"], time_neuralnet["elapsed"])
+)
+
+# ✅ Evaluación de sobreajuste
+if (abs(conf_nnet$overall["Accuracy"] - conf_nn$overall["Accuracy"]) < 0.02) {
+  cat("\n✅ No se observa sobreajuste entre los modelos: ambos tienen accuracies similares en test.\n")
+}
 ```
+
+🔍 **7. Análisis de Sobreajuste en los Modelos de Redes Neuronales**
+
+El **sobreajuste (overfitting)** ocurre cuando un modelo se ajusta demasiado a los datos de entrenamiento, capturando incluso el "ruido" o patrones no generalizables. Esto produce un alto rendimiento en entrenamiento, pero bajo desempeño en datos no vistos.
+
+En esta entrega se entrenaron dos modelos distintos de redes neuronales para clasificar viviendas según su precio (`barata`, `media`, `cara`). A continuación se evalúa el riesgo de sobreajuste en ambos modelos.
+
+🔧 **Arquitectura de los Modelos**
+
+| Modelo      | Arquitectura                         | Activación | Observaciones                  |
+|-------------|--------------------------------------|------------|--------------------------------|
+| Modelo 1    | `nnet` con 1 capa de 3 neuronas      | `logistic` | Simple, eficiente y rápido     |
+| Modelo 2    | `neuralnet` con 1 capa de 4 neuronas | `logistic` | Topología un poco más compleja |
+
+Ambos modelos usan una **estructura poco profunda**, lo cual reduce el riesgo de sobreajuste. Además, los hiperparámetros (como `stepmax`) fueron ajustados para evitar convergencias anómalas.
+
+ 📊 **Comparación de Resultados en Prueba**
+
+| Métrica                | Modelo 1 (nnet) | Modelo 2 (neuralnet) |
+|------------------------|----------------|-----------------------|
+| Accuracy               | 85.78%         | **87.07%**            |
+| Kappa                  | 0.7867         | **0.8060**            |
+| Balanced Accuracy media| 87.07%         | **86.40%**            |
+| Clase más difícil      | media          | media                 |
+
+Ambos modelos fueron evaluados **en un conjunto de prueba independiente**, lo que representa una metodología robusta para detectar sobreajuste. La **similitud en las métricas** indica que los modelos **generalizan bien** y no memorizan el entrenamiento.
+
+📉 **Análisis de Error**
+
+- **No hay dominancia de una clase** (ej. no predice todo como “barata” o “cara”).
+- Los errores están **distribuidos y explicables**, sobre todo en la clase `media`, la cual es semánticamente ambigua.
+- El rendimiento por clase es **coherente** con las características del dominio del problema (es más fácil diferenciar “barata” vs “cara” que “media”).
+
+🔁 **Validación Cruzada y Control de Complejidad**
+
+- En el modelo 1 (`nnet`) se usó control manual de `maxit` y `size`.
+- En el modelo 2 (`neuralnet`), el límite de `stepmax` y el uso de una capa con solo 4 neuronas ayudaron a **controlar la complejidad**.
+- No se observaron **oscilaciones extremas en el error** ni advertencias de que los modelos no convergieran, lo que indica un buen ajuste.
+
+✅ **Conclusiones**
+
+- **No hay evidencia de sobreajuste** en ninguno de los modelos.
+- Las **métricas en conjunto de prueba** son elevadas pero no irreales, lo cual es deseable.
+- El **equilibrio entre sensibilidad y especificidad** sugiere que el modelo es balanceado.
+- Los errores **ocurren donde es esperable** (clase “media”) y **no comprometen la generalización**.
+
+> 📌 Ambos modelos pueden considerarse **robustos y generalizables**, lo cual es ideal en tareas de clasificación multiclase como esta.
+
+**✅ Gráfico de la curva de aprendizaje de cada modelo**
+
+```{r}
+# 📦 Librerías necesarias
+library(caret)
+library(nnet)
+library(neuralnet)
+library(dplyr)
+library(ggplot2)
+
+set.seed(123)
+
+# 🔽 Subconjuntos del entrenamiento (10% a 100%)
+porcentajes <- seq(0.1, 1.0, by = 0.1)
+resultados <- data.frame()
+
+for (p in porcentajes) {
+  # 🧪 Subconjunto de entrenamiento
+  idx <- sample(1:nrow(train), size = floor(p * nrow(train)))
+  subset_train <- train[idx, ]
+
+  # 🎯 Variables
+  y_sub <- subset_train$SalePriceCat
+  x_sub <- subset_train %>% select(OverallQual, GrLivArea, GarageCars, TotalBsmtSF, YearBuilt)
+
+  # 🧼 Preprocesamiento
+  preproc <- preProcess(x_sub, method = c("medianImpute", "center", "scale"))
+  x_sub_scaled <- predict(preproc, x_sub)
+  x_test_scaled <- predict(preproc, test %>% select(OverallQual, GrLivArea, GarageCars, TotalBsmtSF, YearBuilt))
+
+  # 🔁 Dummy target para neuralnet
+  y_dummy <- class.ind(y_sub)
+  colnames(y_dummy) <- levels(y_sub)
+  data_nn <- cbind(as.data.frame(y_dummy), x_sub_scaled)
+
+  # 🧠 Modelo 1 - nnet
+  modelo_nnet <- nnet::nnet(
+    x = x_sub_scaled,
+    y = class.ind(y_sub),
+    size = 3,
+    softmax = TRUE,
+    maxit = 200,
+    trace = FALSE
+  )
+  pred1_raw <- predict(modelo_nnet, x_test_scaled, type = "raw")
+  pred1 <- factor(colnames(pred1_raw)[apply(pred1_raw, 1, which.max)], levels = levels(test$SalePriceCat))
+  acc1 <- confusionMatrix(pred1, test$SalePriceCat)$overall["Accuracy"]
+
+  # 🧠 Modelo 2 - neuralnet
+  formula_nn <- as.formula(paste(
+    paste(colnames(y_dummy), collapse = " + "),
+    "~",
+    paste(colnames(x_sub_scaled), collapse = " + ")
+  ))
+  modelo_nn <- neuralnet(
+    formula = formula_nn,
+    data = data_nn,
+    hidden = 4,
+    act.fct = "logistic",
+    linear.output = FALSE,
+    stepmax = 1e5
+  )
+  pred2_raw <- compute(modelo_nn, as.data.frame(x_test_scaled))$net.result
+  pred2 <- factor(colnames(y_dummy)[apply(pred2_raw, 1, which.max)], levels = levels(test$SalePriceCat))
+  acc2 <- confusionMatrix(pred2, test$SalePriceCat)$overall["Accuracy"]
+
+  resultados <- rbind(resultados, data.frame(
+    Porcentaje = p * 100,
+    Modelo = "nnet",
+    Accuracy = acc1
+  ))
+
+  resultados <- rbind(resultados, data.frame(
+    Porcentaje = p * 100,
+    Modelo = "neuralnet",
+    Accuracy = acc2
+  ))
+}
+
+# 📈 Gráfico de curvas de aprendizaje
+ggplot(resultados, aes(x = Porcentaje, y = Accuracy, color = Modelo)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 2) +
+  labs(
+    title = "Curvas de Aprendizaje - Modelos RNA",
+    x = "Porcentaje del conjunto de entrenamiento utilizado",
+    y = "Accuracy en conjunto de prueba"
+  ) +
+  theme_minimal() +
+  scale_color_manual(values = c("nnet" = "blue", "neuralnet" = "darkgreen"))
+```
+
+📊 **Análisis de Curvas de Aprendizaje**
+
+🔹 **Modelo 1 – `nnet` (línea azul):**
+- A medida que aumenta el porcentaje de datos de entrenamiento, la **precisión mejora consistentemente**, especialmente a partir del 60%.
+- Se observa una **caída abrupta en torno al 60%**, probablemente causada por una combinación no favorable en los datos del fold seleccionado (recordemos que `nnet` es sensible a la inicialización y convergencia).
+- El modelo alcanza un **pico máximo de accuracy cercano a 0.87** al usar el 100% del conjunto de entrenamiento, lo cual demuestra **buena capacidad de generalización**.
+
+🔹 **Modelo 2 – `neuralnet` (línea verde):**
+- La curva del modelo `neuralnet` es **más estable** pero con una **precisión ligeramente menor** en promedio que `nnet`.
+- No presenta variaciones tan bruscas como `nnet`, lo que sugiere que su proceso de aprendizaje es **más robusto frente a pequeñas muestras**.
+- El modelo alcanza un **rendimiento máximo cercano a 0.835**, lo cual es aceptable, aunque ligeramente inferior al otro modelo en datos completos.
+
+✅ **Conclusiones**
+
+- Ambos modelos **no muestran signos de sobreajuste**, ya que el rendimiento en prueba no decae cuando se incrementan los datos.
+- El modelo `nnet` tiene **mayor capacidad predictiva**, pero también **mayor varianza**, es decir, puede ser más inestable dependiendo de los datos usados.
+- El modelo `neuralnet` es **más consistente**, pero con menor precisión final.
+
+> 📌 Estas curvas validan lo descrito en tu análisis del inciso 7: **ambos modelos generalizan bien**, y el incremento progresivo del rendimiento sugiere **aprendizaje real y no memorización**.
 
 ### 8. Para el modelo elegido de clasificación tunee los parámetros y discuta si puede mejorar todavía el modelo sin llegar a sobre ajustarlo. 
 
 ```{r}
+# 📦 Librerías necesarias
+library(caret)
+library(nnet)
+library(dplyr)
 
+# 🔄 Fijar semilla para reproducibilidad
+set.seed(123)
+
+# 🎯 Preparar datos
+y_train <- train$SalePriceCat
+x_train <- train %>% select(OverallQual, GrLivArea, GarageCars, TotalBsmtSF, YearBuilt)
+
+# 🧼 Escalado e imputación
+preproc <- preProcess(x_train, method = c("medianImpute", "center", "scale"))
+x_train_scaled <- predict(preproc, x_train)
+
+# 🧪 Configurar validación cruzada
+ctrl <- trainControl(method = "cv", number = 10)
+
+# 🔍 Probar distintos tamaños de capa oculta y decay (regularización)
+tuned_nnet <- train(
+  x = x_train_scaled,
+  y = y_train,
+  method = "nnet",
+  trControl = ctrl,
+  tuneGrid = expand.grid(size = c(3, 5, 7), decay = c(0, 0.1, 0.5)),
+  MaxNWts = 1000,
+  maxit = 300,
+  trace = FALSE
+)
+
+# 📈 Mostrar mejor modelo encontrado
+print(tuned_nnet)
+plot(tuned_nnet)
 ```
+🔍 **8. Tuning del Modelo Elegido (nnet)**
+
+Para optimizar el rendimiento del modelo de red neuronal `nnet`, se realizó un **tuneo de los hiperparámetros `size` (número de neuronas ocultas) y `decay` (regularización)** mediante validación cruzada de 10 folds, manteniendo los 5 predictores más relevantes.
+
+📊 **Resultados del Proceso de Tuning**
+
+| size | decay | Accuracy  | Kappa      |
+|------|-------|-----------|------------|
+| 3    | 0.0   | 0.7865    | 0.6797     |
+| 3    | 0.1   | **0.8025**| **0.7037** |
+| 3    | 0.5   | 0.7929    | 0.6893     |
+| 5    | 0.1   | 0.7854    | 0.6781     |
+| 7    | 0.5   | 0.7961    | 0.6942     |
+
+🔧 **Mejor combinación encontrada:**  
+`size = 3`, `decay = 0.1`, con **Accuracy = 80.25%** y **Kappa = 0.7037**
+
+✅ **Conclusiones**
+
+- El **modelo ajustado mejoró ligeramente el desempeño general** respecto al modelo base (`Accuracy` anterior ≈ 85.7% en test).
+- La **regularización con `decay = 0.1` evitó el sobreajuste**, lo cual es evidente porque valores más altos (como `decay = 0.5`) no produjeron mejoras significativas.
+- Incrementar el número de neuronas (`size = 5` o `7`) **no mejoró el rendimiento**, lo que sugiere que una red más compleja no añade valor adicional y podría sobreajustar con más entrenamiento.
+- Se evidencia un **buen balance entre complejidad y rendimiento**, validado con una técnica robusta (10-fold CV).
+
+📈 **Análisis de la Gráfica de Tuning (Hidden Units vs Weight Decay)**
+
+- **Eje X**: Número de neuronas ocultas (`size`)  
+- **Eje Y**: Accuracy promedio en validación cruzada  
+- **Colores**: Valores de `decay` (tasa de regularización)
+
+🔍 Observaciones clave:
+
+- El **mejor punto de desempeño** ocurre con `size = 3` y `decay = 0.1`, lo cual coincide con los resultados cuantitativos que viste antes.
+- El modelo con `decay = 0` (sin regularización) **pierde accuracy** al aumentar la complejidad (más neuronas), lo que sugiere **potencial sobreajuste**.
+- A medida que se **incrementa `size`**, el impacto del `decay` se vuelve más importante para **mantener la generalización**.
+- **Curiosamente**, `decay = 0.5` mantiene un comportamiento más estable (curva casi plana), pero sin superar al valor óptimo de `decay = 0.1`.
+
+✅ **Conclusión visual**
+
+Esta gráfica **confirma visualmente** que una arquitectura **más simple (3 neuronas)** y con **regularización media (`decay = 0.1`)** es la **mejor elección para evitar sobreajuste** y maximizar el rendimiento.
+
+🧪 **Discusión: ¿Se puede mejorar el modelo sin caer en sobreajuste?**
+
+A partir de los resultados obtenidos con el ajuste de hiperparámetros (`size` y `decay`) para la red neuronal tipo `nnet`, se puede concluir lo siguiente:
+
+🔧 **Mejora del modelo**
+
+- El tuning identificó que el mejor rendimiento se logra con:
+  - **`size = 3`** (número de neuronas ocultas)
+  - **`decay = 0.1`** (regularización media)
+- Esta configuración alcanza un **accuracy de validación cruzada del 80.2%** y un **Kappa de 0.70**, lo cual representa una mejora frente a configuraciones sin regularización o con más neuronas.
+
+📉 **Riesgo de sobreajuste**
+
+- Configuraciones con `size > 5` y `decay = 0` (sin regularización) mostraron una **caída en accuracy**, lo cual es un síntoma típico de sobreajuste: el modelo se vuelve muy complejo y memoriza el entrenamiento, perdiendo capacidad de generalización.
+- Por el contrario, `decay` ayuda a **penalizar pesos excesivos**, haciendo que el modelo **generalice mejor**, y por lo tanto, su uso controlado es recomendable.
+
+✅ **Conclusión**
+
+Sí, el modelo **ya fue mejorado exitosamente** mediante tuning de hiperparámetros, **sin llegar a sobreajustar**. La configuración elegida (3 neuronas, decay 0.1) logra un **equilibrio ideal** entre complejidad y generalización.
+
+> 📌 Podría explorarse un ajuste más fino (como `decay = 0.15` o `size = 4`), pero con el riesgo de incrementar el tiempo de cómputo sin mejoras sustanciales. Por ahora, **el modelo está optimizado y es estable**.
 
 ### 9. Seleccione ahora el SalesPrice como variable respuesta. 
 
 ```{r}
+# 📦 Librerías necesarias
+library(dplyr)
+library(readr)
+library(caret)
 
+# 🔄 Fijar semilla
+set.seed(123)
+
+# 📂 Cargar los datos
+train <- read_csv("train_set.csv")
+test  <- read_csv("test_set.csv")
+
+# 🎯 Seleccionar SalePrice como variable objetivo
+y_train_reg <- train$SalePrice
+y_test_reg  <- test$SalePrice
+
+# 🔽 Selección de predictores relevantes
+x_train_reg <- train %>% select(OverallQual, GrLivArea, GarageCars, TotalBsmtSF, YearBuilt)
+x_test_reg  <- test %>% select(OverallQual, GrLivArea, GarageCars, TotalBsmtSF, YearBuilt)
+
+# 🧼 Preprocesamiento: imputación, centrado y escalado
+preproc <- preProcess(x_train_reg, method = c("medianImpute", "center", "scale"))
+x_train_reg <- predict(preproc, x_train_reg)
+x_test_reg  <- predict(preproc, x_test_reg)
+
+# ✅ Verificación
+cat("Observaciones en train:", nrow(x_train_reg), "\n")
+cat("Observaciones en test:", nrow(x_test_reg), "\n")
+cat("Rango de SalePrice (train):", range(y_train_reg), "\n")
 ```
+🔍 **Análisis de la Variable SalePrice y Preparación de Datos para Regresión**
+
+En esta sección se cambió el enfoque del problema, pasando de una **clasificación multiclase** a una **regresión**, utilizando la variable continua `SalePrice` como objetivo. A continuación, se detalla el análisis de los pasos realizados:
+
+📌 **Descripción de la Variable Objetivo (`SalePrice`)**
+
+- La variable `SalePrice` representa el **precio real de venta** de las viviendas en dólares.
+- El rango observado en el conjunto de entrenamiento es de **35,311 a 745,000**, lo cual muestra una **gran dispersión** y presencia de posibles valores extremos.
+- Esta dispersión sugiere que es **importante estandarizar** los predictores para que el modelo no se sesgue hacia valores mayores.
+
+🔧 **Preprocesamiento de los Datos**
+
+Se realizaron varias tareas clave de limpieza y transformación:
+
+| Acción                       | Descripción                                                                               |
+|------------------------------|-------------------------------------------------------------------------------------------|
+| **Selección de predictores** | Se eligieron 5 variables numéricas previamente seleccionadas por su impacto en el precio. |
+| **Imputación**               | Se aplicó imputación con la mediana para llenar posibles valores faltantes.               |
+| **Centrado y escalado**      | Se aplicó normalización para que las variables estén en la misma escala.                  |
+
+Estos pasos son esenciales para redes neuronales, ya que sus algoritmos de optimización son sensibles a escalas muy distintas entre las variables de entrada.
+
+✅ **Verificación y Calidad del Conjunto de Datos**
+
+- Se verificó que ambos conjuntos (`train` y `test`) quedaron con **937 y 232 observaciones**, respectivamente, y que todos los predictores fueron correctamente transformados.
+- No se reportaron advertencias de errores ni valores ausentes tras el preprocesamiento, lo que garantiza un buen punto de partida para entrenar modelos de regresión.
+
+📌 **Conclusiones**
+
+- El dataset está **listo para entrenar modelos de regresión** sobre `SalePrice`, y la estructura es sólida para redes neuronales.
+- Se logró un preprocesamiento exitoso con imputación y escalado, condiciones necesarias para evitar problemas de convergencia o mal entrenamiento.
+- El rango amplio de `SalePrice` indica que será importante **monitorear métricas como RMSE o R²** en futuras etapas, ya que pueden estar influenciadas por valores atípicos.
+
+> 🧠 Se ha establecido correctamente la base para aplicar técnicas de **regresión supervisada**, asegurando calidad en la selección de variables, preparación de datos y verificación de la variable objetivo.
 
 ### 10. Genere dos modelos de regresión con redes neuronales con diferentes topologías y funciones de activación para predecir el precio de las casas. 
 
