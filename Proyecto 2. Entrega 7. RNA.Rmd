@@ -1518,19 +1518,113 @@ Lo que si mejoro este ultimo fue en el MSE de 174.12  mejorando el Arbol de Desi
 
 ```{r}
 
+
+library(ggplot2)
+# Datos de clasificación
+clasificacion <- data.frame(
+Modelo = c("Regresion Logistica","KNN","Naive Bayes", "Random Forest", "Árbol de Clasificación", "SVM", "RNA"),
+Accuracy = c(0.7013, 0.67, 0.8041237, 0.9816934, 0.7414188, 0.8707, 0.8025)
+)
+# Gráfico de Accuracy (Clasificación)
+ggplot(clasificacion, aes(x = Modelo, y = Accuracy, fill = Modelo)) +
+geom_bar(stat = "identity", color = "black", alpha = 0.8) +
+labs(title = "Comparación de Accuracy en Modelos de Clasificación",
+x = "Modelo",
+y = "Accuracy") +
+theme_minimal() +
+theme(legend.position = "none")
+
+
+
+
 ```
+
+#### Analisis de la Grafica
+
+Podemos ver que de todos los modelos RNA en realidad es solo mejor que el Arbol de Desicion, la Regresion Logistica y KNN porque para SVM no es tan bueno y con Random Forest pero con Naive Bayes tienen el mismo rendimiento
+
+En conclusion es muy bueno en tiempo de repidez de SVM y de hecho si tienen casi el mismo rendimiento seria mejor usarlo en lugar de ese y Naive Bayes . Pero flaquece con respecto al random forest , aunque el problema del random forest es su tiempo de ejecucion, un problema tambien que tiene es que nuestro modelo su complejidad en espacio es mucho mayor que todos los demas por lo que no se recomienda usar en grandes cantidades de datos sin apoyo de equipo necesario
+
+
+
 
 ### 16. Compare los resultados del mejor modelo para predecir el precio de venta con los resultados de los algoritmos usados para el mismo propósito de las entregas anteriores. 
 
 ```{r}
+# Datos de regresión
+regresion <- data.frame(
+  Modelo = c("KNN", "Regresion Lineal", "Naive Bayes", "Árbol de Regresión", "SVM Lineal", "RNA"),
+  MSE = c(0.1600, 0.000000000000000009157,0.05044311, 1658823049, 133.76 , 174.12)
+)
 
+# Gráfico de MSE (Regresión)
+ggplot(regresion, aes(x = Modelo, y = MSE, fill = Modelo)) +
+  geom_bar(stat = "identity", color = "black", alpha = 0.8) +
+  labs(title = "Comparación de MSE en Modelos de Regresión",
+       x = "Modelo",
+       y = "MSE") +
+  theme_minimal() +
+  theme(legend.position = "none")
 ```
+
+```{r}
+# Datos de regresión
+regresion <- data.frame(
+  Modelo = c("KNN", "Regresion Lineal", "Naive Bayes", "SVM Lineal", "RNA"),
+  MSE = c(0.1600, 0.000000000000000009157,0.05044311, 133.76 , 174.12)
+)
+
+# Gráfico de MSE (Regresión)
+ggplot(regresion, aes(x = Modelo, y = MSE, fill = Modelo)) +
+  geom_bar(stat = "identity", color = "black", alpha = 0.8) +
+  labs(title = "Comparación de MSE en Modelos de Regresión",
+       x = "Modelo",
+       y = "MSE") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+#### Analisis de las Graficas
+
+
+De todos el pero es el de Arbol de regresion. Y no podemos comparar el RNA con el de regresion lineal , knn o naive bayes porque es peor que esos.
+
+El unico en que puede haber una comparacion clara es con SVM lineal, que de hecho es peor que ese. Lo que indica que nuestro RNA no es tan bueno al momento de realizar regresiones. Pero el lado positivo es que podemos cambiar la funcion y esto mismo puede ayudar a que mejore un poco.
+
+En conclusion para poder realizar una regresion no es tan bueno el RNA a menos que sean datos mas complejos que una simple regresion lineal , y existan una gran cantidad de variables que podemos usar.
+
 
 ### 17. Ahora que ha usado todos los modelos que hemos visto y aplicados al conjunto de datos llegue a conclusiones sobre cual es o cuales son los mejores modelos para clasificar dadas las características del conjunto de datos. ¿Cuál o cuáles son los mejores para predecir el precio de las casas? Elabore una tabla de resumen con las métricas de los modelos que está comparando. 
 
-```{r}
+#### Tabla de Modelos
 
-```
+| Nombre del Modelo    | Clasificacion (Accurancy) | Regresion (MSE) | Observaciones                       |
+|----------------------|---------------------------|-----------------|-------------------------------------|
+| Regresion Lineal     | No Aplica                 | 9.157e-18       | El tiempo de ejecucion mas rapido   |
+| Regresion Logistica  | 0.7013                    | No aplico       | Es el que menos tiempo toma de clas |    
+| KNN                  | 0.67                      | 0.1600          | __________________________________  |
+| Naive Bayes          | 0.8041237                 | 0.0504431       | __________________________________  |
+| Arboles de Desicion  | 0.7414188                 | 1658823049      | Es el que peor le va en regresion   |
+| Random Forest        | 0.9816934                 | No aplico       | Toma mas tiempo de ejecucion        |  
+| SVM                  | 0.8707                    | 133.76          | ____________________________        |   
+| RNA                  | 0.8025                    | 174             | Es el que mas espacio toma de todos |
+
+
+#### Analisis del Mejor Modelo
+
+El mejor modelo para predecir una variable continua es regresion lineal, esto porque es el que de todos toma menos tiempo, tiene mas ajuste de R^2. El unico problema es que si se tienen una gran cantidad de variables categoricas y se quiere usar con one encode no rinde tan bien.
+
+El siguiente mejor modelo para clasificacion es SVM, Esto porque aunque se tarda mucho en tiempo de ejecucion no es tanto a comparacion de Random Forest. 
+
+Ademas esta muy bien ajustado sin sobreajuste ni subajuste. Y es el que mejor llega a predecir la variable. Solo en caso que no sea tan bueno en clasificar se recomienda random forest pero este ultimo tambien crece mucho en tiempo.
+
+
+Pero si tomamos en consideracion un modelo que sirve para ambos casos seria el de Naive Bayes. Ya que es el que rinde en promedio en ambos . Es mucho mejor que SVM en regresion y mucho mejor que KNN en regresion. Por lo que seria un modelo definitivo para ambo usos.
+
+
+En conclusion, el mejor modelo de todos es **Naive Bayes**, pero si solo se quiere usar exclusivamente para clasificacion lo mejor seria usar SVM, y si solo se quiere usar para Regresion optar por regresion lineal.
+
+
 
 ### 18. Genere un informe total de la consultoría donde incluya todas las entregas parciales. Debe incluir desde el análisis exploratorio hasta esta entrega. Debe ser un informe general completamente coherente, sin subtítulos relacionados con las instrucciones de las actividades de las entregas. Debe ser un informe formal, que pueda ser presentado a los directivos de la compañía. 
 
