@@ -1112,21 +1112,145 @@ Estos pasos son esenciales para redes neuronales, ya que sus algoritmos de optim
 
 ### 10. Genere dos modelos de regresión con redes neuronales con diferentes topologías y funciones de activación para predecir el precio de las casas. 
 
+#### Primer Modelo con logistica y topologia de 1 capa
+
 ```{r}
+# 📦 Librerías necesarias
+library(neuralnet)
+library(caret)
+library(dplyr)
+
+# 🧪 Normalizar las variables (para neuralnet es recomendable)
+# Agregamos la variable objetivo para normalizar todo junto
+train_norm <- cbind(x_train_reg, SalePrice = y_train_reg)
+test_norm  <- cbind(x_test_reg, SalePrice = y_test_reg)
+
+# Obtener rangos para desnormalizar después
+min_price <- min(train_norm$SalePrice)
+max_price <- max(train_norm$SalePrice)
+
+# Normalización min-max para la variable objetivo
+train_norm$SalePrice <- (train_norm$SalePrice - min_price) / (max_price - min_price)
+test_norm$SalePrice  <- (test_norm$SalePrice  - min_price) / (max_price - min_price)
+
+# 📋 Fórmula para neuralnet
+f <- as.formula("SalePrice ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt")
+
+# 🧠 Entrenamiento de la red neuronal
+modelo_nn <- neuralnet(
+  formula = f,
+  data = train_norm,
+  hidden = 5,            # 5 neuronas en la capa oculta
+  linear.output = TRUE,  # Salida continua
+  lifesign = "minimal"
+)
+
+# 🖼️ Visualizar la red
+plot(modelo_nn)
+
+# 🔮 Predicción sobre test
+pred_nn_norm <- compute(modelo_nn, test_norm[, names(x_test_reg)])$net.result
+
+# 🔁 Desnormalizar predicciones
+pred_nn <- pred_nn_norm * (max_price - min_price) + min_price
+
+# 🎯 Evaluar desempeño
+res_nn <- postResample(pred = pred_nn, obs = y_test_reg)
+print(res_nn)
+
+# 📊 Gráfico de predicción vs valor real
+plot(y_test_reg, pred_nn,
+     xlab = "Precio real", ylab = "Precio predicho",
+     main = "Predicción SalePrice vs Real (neuralnet)",
+     pch = 16, col = "blue")
+abline(0, 1, col = "red", lwd = 2)
+
+
 
 ```
+
+
+#### Segundo Modelo con tangente hiperbolica y topologia de 2 capas
+
+```{r}
+# 📦 Librerías necesarias
+library(neuralnet)
+library(caret)
+library(dplyr)
+
+# 🧪 Normalizar las variables (para neuralnet es recomendable)
+# Agregamos la variable objetivo para normalizar todo junto
+train_norm <- cbind(x_train_reg, SalePrice = y_train_reg)
+test_norm  <- cbind(x_test_reg, SalePrice = y_test_reg)
+
+# Obtener rangos para desnormalizar después
+min_price <- min(train_norm$SalePrice)
+max_price <- max(train_norm$SalePrice)
+
+# Normalización min-max para la variable objetivo
+train_norm$SalePrice <- (train_norm$SalePrice - min_price) / (max_price - min_price)
+test_norm$SalePrice  <- (test_norm$SalePrice  - min_price) / (max_price - min_price)
+
+# 📋 Fórmula para neuralnet
+f <- as.formula("SalePrice ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt")
+
+# 🧠 Entrenamiento de la red neuronal
+modelo_nn <- neuralnet(
+  formula = f,
+  data = train_norm,
+  hidden = c(10, 5),         
+  linear.output = TRUE,
+  act.fct = tanh,
+  lifesign = "minimal"
+)
+
+# 🖼️ Visualizar la red
+plot(modelo_nn)
+
+# 🔮 Predicción sobre test
+pred_nn_norm <- compute(modelo_nn, test_norm[, names(x_test_reg)])$net.result
+
+# 🔁 Desnormalizar predicciones
+pred_nn <- pred_nn_norm * (max_price - min_price) + min_price
+
+# 🎯 Evaluar desempeño
+res_nn <- postResample(pred = pred_nn, obs = y_test_reg)
+print(res_nn)
+
+# 📊 Gráfico de predicción vs valor real
+plot(y_test_reg, pred_nn,
+     xlab = "Precio real", ylab = "Precio predicho",
+     main = "Predicción SalePrice vs Real (neuralnet)",
+     pch = 16, col = "blue")
+abline(0, 1, col = "red", lwd = 2)
+
+
+
+```
+
+
+
 
 ### 11. Compare los dos modelos de regresión y determine cuál funcionó mejor para predecir el precio de las casas. 
 
-```{r}
 
-```
+#### Graficas
 
-### 12. Analice si no hay sobreajuste en los modelos. Use para esto la curva de aprendizaje. 
+Se puede ver que la primera grafica utiliza menos nodos que nuestra red neuronal de mas capas y con funcion de tangente hiperbolica. De las 2 se observa que la que tuvo menos errores fue la segunda con 0.472441 lo que la hace mejor en ese sentido. Pero si nos vamos al R^2 de cada una de las graficas vemos que la segunda no mejoro en nada ya que ahora tiene 0.85 en vez de los 0.88 de la anterior. Esto se refleja en su grafica que cubre menos puntos en su regresion . 
 
-```{r}
+#### RMSE y R Cuadarado
 
-```
+De los 2 el mejor en error fue la segunda pero solo por el error. Porque en el segundo tenemos que RMSE de este es   34542.28 y MAE  22629.00  a diferencia del primero que tiene RMSE 31389.17 MAE 21442.58.
+
+Al final de los 2 el peor fue el segundo, lo que nos indica que el primero es mejor si bien no en su error, si en RMSE y MAE mejora muchisimo
+
+
+
+### 12. Anali.ce si no hay sobreajuste en los modelos. Use para esto la curva de aprendizaje. 
+
+
+
+
 
 ### 13. Para el modelo elegido de regresión tunee los parámetros y discuta si puede mejorar todavía el modelo sin llegar a sobre ajustarlo.  
 
