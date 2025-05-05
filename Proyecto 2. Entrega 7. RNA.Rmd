@@ -1246,23 +1246,273 @@ Al final de los 2 el peor fue el segundo, lo que nos indica que el primero es me
 
 
 
-### 12. Anali.ce si no hay sobreajuste en los modelos. Use para esto la curva de aprendizaje. 
+### 12. Analice si no hay sobreajuste en los modelos. Use para esto la curva de aprendizaje. 
 
+```{r}
+# 📦 Librerías necesarias
+library(neuralnet)
+library(caret)
+library(dplyr)
+
+# 📋 Fórmula
+f <- as.formula("SalePrice ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt")
+
+# 🔁 Inicializar vectores para errores
+set_sizes <- seq(0.1, 1.0, by = 0.1)
+rmse_train <- numeric(length(set_sizes))
+rmse_test  <- numeric(length(set_sizes))
+
+# 🔄 Iterar sobre distintos tamaños de entrenamiento
+for (i in seq_along(set_sizes)) {
+  frac <- set_sizes[i]
+  set.seed(123)
+  idx <- sample(nrow(train_norm), size = floor(nrow(train_norm) * frac))
+  train_frac <- train_norm[idx, ]
+  
+  # Entrenar red
+  modelo <- neuralnet(
+    formula = f,
+    data = train_frac,
+    hidden = 5,
+    linear.output = TRUE,
+    lifesign = "minimal"
+  )
+  
+  # 🔹 Predicción sobre datos de entrenamiento
+  pred_train_norm <- compute(modelo, train_frac[, names(x_test_reg)])$net.result
+  pred_train <- pred_train_norm * (max_price - min_price) + min_price
+  obs_train  <- train_frac$SalePrice * (max_price - min_price) + min_price
+  rmse_train[i] <- RMSE(pred_train, obs_train)
+  
+  # 🔸 Predicción sobre test
+  pred_test_norm <- compute(modelo, test_norm[, names(x_test_reg)])$net.result
+  pred_test <- pred_test_norm * (max_price - min_price) + min_price
+  rmse_test[i] <- RMSE(pred_test, y_test_reg)
+}
+
+# 📈 Graficar curva de aprendizaje
+plot(set_sizes * 100, rmse_train, type = "b", col = "blue", pch = 16,
+     xlab = "% de datos de entrenamiento", ylab = "RMSE",
+     ylim = range(c(rmse_train, rmse_test)),
+     main = "Curva de Aprendizaje - Error en Train vs Test")
+lines(set_sizes * 100, rmse_test, type = "b", col = "red", pch = 17)
+legend("topright", legend = c("Entrenamiento", "Test"), col = c("blue", "red"), pch = c(16, 17))
+
+```
+
+#### Analisis
+
+Podemos ver que el modelo no esta sobreajustado . Porque si bien al inicio hay mucha distincia entre las 2 curvas tanto de aprendizaje como de testeo. Las 2 convergen en una misma linea. Lo que indica que el modelo mejoro bastante, al final ninguna de las curvas se sobrelapa lo que indicaria una clara sobreajuste, y tampoco hay subajuste porque no vemos que se distancien mucho entre ellos. 
+
+
+Si tiene un margen de mejora pero es muy pequeño. Por lo que se puede hacer tunning y probar nuevamente la curva de aprendizaje
 
 
 
 
 ### 13. Para el modelo elegido de regresión tunee los parámetros y discuta si puede mejorar todavía el modelo sin llegar a sobre ajustarlo.  
 
+
+Lo primero que vamos a hacer es tunear nuestro modelo probando diferentes topologias.
+
 ```{r}
+# 📦 Librerías necesarias
+library(neuralnet)
+library(caret)
+library(dplyr)
+
+# 🧪 Normalizar las variables (ya lo hiciste, lo usamos igual aquí)
+train_norm <- cbind(x_train_reg, SalePrice = y_train_reg)
+test_norm  <- cbind(x_test_reg, SalePrice = y_test_reg)
+
+# Rango para desnormalizar
+min_price <- min(train_norm$SalePrice)
+max_price <- max(train_norm$SalePrice)
+
+# Normalización
+train_norm$SalePrice <- (train_norm$SalePrice - min_price) / (max_price - min_price)
+test_norm$SalePrice  <- (test_norm$SalePrice  - min_price) / (max_price - min_price)
+
+# 📋 Fórmula
+f <- as.formula("SalePrice ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt")
+
+# 🔧 Hiperparámetros a evaluar
+topologias <- list(
+  c(3),
+  c(5),
+  c(7),
+  c(5, 3),
+  c(10),
+  c(5, 5),
+  c(10, 5)
+)
+
+# 🎯 Evaluar cada topología
+resultados <- data.frame(
+  Topologia = character(),
+  RMSE = numeric(),
+  Rsquared = numeric(),
+  MAE = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (top in topologias) {
+  set.seed(123)
+  modelo <- neuralnet(
+    formula = f,
+    data = train_norm,
+    hidden = top,
+    linear.output = TRUE,
+    lifesign = "minimal"
+  )
+  
+  pred_norm <- compute(modelo, test_norm[, names(x_test_reg)])$net.result
+  pred <- pred_norm * (max_price - min_price) + min_price
+  
+  met <- postResample(pred, y_test_reg)
+  
+  resultados <- rbind(resultados, data.frame(
+    Topologia = paste(top, collapse = "-"),
+    RMSE = met["RMSE"],
+    Rsquared = met["Rsquared"],
+    MAE = met["MAE"]
+  ))
+}
+
+# 📊 Mostrar resultados ordenados
+resultados <- resultados %>% arrange(RMSE)
+print(resultados)
 
 ```
+
+
+#### Eleccion
+Vamos a usar el que nos dio 0.8977765 y el RMSE de 30317.79  con MAE de 20308.20 que es con topologia 7. Vemos que no esta sobreajustado ya que nos dio un error de 
+
+
+#### Curva de Aprendizaje
+
+```{r}
+
+# 📦 Librerías necesarias
+library(neuralnet)
+library(caret)
+library(dplyr)
+
+# 📋 Fórmula
+f <- as.formula("SalePrice ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt")
+
+# 🔁 Inicializar vectores para errores
+set_sizes <- seq(0.1, 1.0, by = 0.1)
+rmse_train <- numeric(length(set_sizes))
+rmse_test  <- numeric(length(set_sizes))
+
+# 🔄 Iterar sobre distintos tamaños de entrenamiento
+for (i in seq_along(set_sizes)) {
+  frac <- set_sizes[i]
+  set.seed(123)
+  idx <- sample(nrow(train_norm), size = floor(nrow(train_norm) * frac))
+  train_frac <- train_norm[idx, ]
+  
+  # Entrenar red
+  modelo <- neuralnet(
+    formula = f,
+    data = train_frac,
+    hidden = 7,
+    linear.output = TRUE,
+    lifesign = "minimal"
+  )
+  
+  # 🔹 Predicción sobre datos de entrenamiento
+  pred_train_norm <- compute(modelo, train_frac[, names(x_test_reg)])$net.result
+  pred_train <- pred_train_norm * (max_price - min_price) + min_price
+  obs_train  <- train_frac$SalePrice * (max_price - min_price) + min_price
+  rmse_train[i] <- RMSE(pred_train, obs_train)
+  
+  # 🔸 Predicción sobre test
+  pred_test_norm <- compute(modelo, test_norm[, names(x_test_reg)])$net.result
+  pred_test <- pred_test_norm * (max_price - min_price) + min_price
+  rmse_test[i] <- RMSE(pred_test, y_test_reg)
+}
+
+# 📈 Graficar curva de aprendizaje
+plot(set_sizes * 100, rmse_train, type = "b", col = "blue", pch = 16,
+     xlab = "% de datos de entrenamiento", ylab = "RMSE",
+     ylim = range(c(rmse_train, rmse_test)),
+     main = "Curva de Aprendizaje - Error en Train vs Test")
+lines(set_sizes * 100, rmse_test, type = "b", col = "red", pch = 17)
+legend("topright", legend = c("Entrenamiento", "Test"), col = c("blue", "red"), pch = c(16, 17))
+```
+Podemos ver que la curva de aprendizaje quedo sin sobreajuste ni subajuste lo que indica que el modelo no quedo sobreajustado.
+
+
 
 ### 14. Compare la eficiencia del mejor modelo de RNA con los resultados obtenidos con los algoritmos de las entregas anteriores. ¿Cuál es mejor para predecir? ¿Cuál se demoró más en procesar? 
 
+
+#### Tiempo de RMSE
+
 ```{r}
+# 📦 Librerías necesarias
+library(neuralnet)
+library(caret)
+library(dplyr)
+
+# 📋 Fórmula
+f <- as.formula("SalePrice ~ OverallQual + GrLivArea + GarageCars + TotalBsmtSF + YearBuilt")
+
+# 🔁 Inicializar vectores para errores
+set_sizes <- seq(0.1, 1.0, by = 0.1)
+rmse_train <- numeric(length(set_sizes))
+rmse_test  <- numeric(length(set_sizes))
+
+# ⏱️ Medir tiempo de ejecución
+start_time <- Sys.time()
+
+# 🔄 Iterar sobre distintos tamaños de entrenamiento
+for (i in seq_along(set_sizes)) {
+  frac <- set_sizes[i]
+  set.seed(123)
+  idx <- sample(nrow(train_norm), size = floor(nrow(train_norm) * frac))
+  train_frac <- train_norm[idx, ]
+  
+  # Entrenar red
+  modelo <- neuralnet(
+    formula = f,
+    data = train_frac,
+    hidden = 7,
+    linear.output = TRUE,
+    lifesign = "minimal"
+  )
+  
+  # 🔹 Predicción sobre datos de entrenamiento
+  pred_train_norm <- compute(modelo, train_frac[, names(x_test_reg)])$net.result
+  pred_train <- pred_train_norm * (max_price - min_price) + min_price
+  obs_train  <- train_frac$SalePrice * (max_price - min_price) + min_price
+  rmse_train[i] <- RMSE(pred_train, obs_train)
+  
+  # 🔸 Predicción sobre test
+  pred_test_norm <- compute(modelo, test_norm[, names(x_test_reg)])$net.result
+  pred_test <- pred_test_norm * (max_price - min_price) + min_price
+  rmse_test[i] <- RMSE(pred_test, y_test_reg)
+}
+
+# ⏱️ Fin del tiempo
+end_time <- Sys.time()
+elapsed_time <- end_time - start_time
+print(paste("Tiempo total de ejecución:", round(elapsed_time, 2)))
 
 ```
+
+
+#### Comparacion
+
+En comparacion de los demas modelos podemos ver que este es mucho mas rapido en tiempo de regresion , superando a SVM siendo el anterior de 3 minutos y ahora este con 30 segundos. Pero no siendo tan rapido como el de Regresion lineal o bayes.
+
+Lo que si mejoro este ultimo fue en el MSE de 174.12  mejorando el Arbol de Desicion pero no al SVM lineal.
+
+
+
 
 ### 15. Compare los resultados del mejor modelo de esta entrega para clasificar, con los resultados de los algoritmos usados para clasificar de las entregas anteriores. 
 
