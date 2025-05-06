@@ -2,7 +2,7 @@
 
 - **Autores**: *Daniel Barillas Moreno y Mathew Cordero Aquino*
 - **Institución / Empresa**: *InmoValor S.A*
-- **Fecha**: *5 de Mayo del 2025*
+- **Fecha**: *6 de Mayo del 2025*
 
 ---
 
@@ -174,9 +174,9 @@ El precio de las casas (SalePrice) no tiene una distribución normal. La mayorí
 
 
 
-## Análisis Exploratorio
+# Análisis Exploratorio
 
-### Variables con Mayor correlacion con la variable Objetivo
+## Variables con Mayor correlacion con la variable Objetivo
 
 
 Se hizo un analisis de correlacion de las variables con el precio de la casa y dio este resultado
@@ -204,43 +204,178 @@ Esto indicaria de que
 
 - GarageCars (Capacidad del garaje en número de autos): Tiene una buena correlación con SalePrice, lo que sugiere que tener más espacio de garaje incrementa el valor de la casa.
 
-### Exploracion de las variables
-- Visualizaciones (gráficas, histogramas, mapas de calor)
+## Exploracion de las variables
+
+
+Se hizo un analisis mas a profundo de las variables a usar en la variable respuesta
+
+![alt text](image-2.png)
+
+- Algunas variables categóricas pueden influir en SalePrice:
+
+- Neighborhood tiene variaciones significativas en los precios.
+
+- Exterior1st y Exterior2nd pueden influir según la calidad de los materiales.
+
+- SaleCondition indica si la venta fue “Normal” o una subasta, lo que puede afectar el precio.
+
+- Solución Propuesta: Convertir variables categóricas a numéricas mediante codificación dummy (One-Hot Encoding).
+
+
+Tambien se hizo un analisis de los grupos de los precios para las casas y su tamaño que:
+
+![alt text](image-3.png)
+
+- Las casas de calidad alta (OverallQual ≥ 8) tienen un precio significativamente mayor.
+
+- Las casas de calidad media (OverallQual 5-7) forman la mayoría del dataset y muestran mayor variabilidad en los precios.
+
+- Las casas de calidad baja (OverallQual ≤ 4) tienen precios considerablemente menores.
+
+
+Lugo se realizo un analisis sobre el precio de las casas sobre su calidad
+
+![alt text](image-7.png)
+
+
+Como podemos ver OverallQual es la variable a predecir SalePrice.
+
+Como ultimo detectamos los valores atipicos
+
+![alt text](image-8.png)
+
+Se observan dos puntos con GrLivArea > 4000 y precios muy bajos
 
 
 ---
 
 ## Datos Encontrados
-- Técnicas aplicadas: *[ej. clustering, clasificación, regresión, asociación]*
-- Justificación de las técnicas
-- Parámetros utilizados
-- Resultados y métricas obtenidas
+### Ingenieria de Caracteristicas:
+
+#### **Clustering**
+
+Aplicamos un método de clustering automático (K-Means) para descubrir patrones en los datos y segmentar las casas en grupos con características similares.
+
+![alt text](image-4.png)
+
+Los colores indican los diferentes grupos de casas detectados automáticamente.
+
+- Cluster 1 - Casas económicas
+
+Baja calidad de construcción (OverallQual bajo).
+Tamaño reducido (GrLivArea y TotalBsmtSF pequeños).
+Garaje pequeño o inexistente (GarageCars).
+Bajo SalePrice, generalmente en vecindarios más baratos.
+
+- Cluster 2 - Casas de precio medio
+
+Calidad media-alta (OverallQual entre 5 y 7).
+Tamaño intermedio, con un área habitable moderada.
+Garaje con espacio para 1-2 autos.
+Precio en el rango medio del dataset.
+
+- Cluster 3 - Casas de lujo
+
+Alta calidad de construcción (OverallQual > 7).
+Casas grandes con mucho espacio (GrLivArea alto).
+Garajes amplios (2-3 autos).
+SalePrice alto, típicamente en vecindarios premium.
+
+Al final se aplico una agrupacion distinta con clustering
+
+![alt text](image-5.png)
+
+El gráfico de clustering muestra tres grupos diferenciados en el dataset de precios de casas. Basándonos en la distribución y separación de los clusters, se pueden hacer las siguientes observaciones:
+
+- Este grupo representa casas con menor calidad de construcción (OverallQual baja), menor área habitable (GrLivArea pequeña) y sótanos más pequeños.
+
+- Muchas de estas casas tienen valores atípicos y precios significativamente más bajos en comparación con el resto del dataset.
+
+- Posible ubicación en vecindarios menos costosos.
+
+- Cluster 2 (Azul - Centro): Casas de Precio Medio y Tamaño Promedio
+
+
+
+#### **PCA**
+
+Se aplico PCA sobre las variables y se encontro que 
+
+![alt text](image-6.png)
+
+Podemos ver que en el grafico despues de los primeros 15 PCA se estabiliza el codo. Estos primeros 14 PCA pertenecen al 63% de la descripcion de los datos. Asi que despues de hacer el analisis podemos notar que la regla del Kaiser si aplico de manera correcta
+
+
+### Variables Finales
+
+Al final las variables que se utilizaron despues de realizar el analisis de PCA y Clustering, son:
+
+- OverallQual 
+- GrLivArea 
+- GarageCars 
+- TotalBsmtSF 
+- YearBuilt
 
 ---
 
-## 8. Evaluación de Resultados
-- Validación del modelo
-- Métricas de desempeño (accuracy, precision, recall, F1, etc.)
-- Interpretación de los resultados
+# Modelos para detectar SalePrice
+
+## Modelos de Clasificacion
+
+Acontinuacion se muestra una lista del rendimiento de los modelos de clasificacion. Se uso accurancy , mientras mas accurrancy mejor rendimiento del modelo
+
+![alt text](image-9.png)
+
+Podemos ver que de todos los modelos RNA en realidad es solo mejor que el Arbol de Desicion, la Regresion Logistica y KNN porque para SVM no es tan bueno y con Random Forest pero con Naive Bayes tienen el mismo rendimiento
+
+En conclusion es muy bueno en tiempo de repidez de SVM y de hecho si tienen casi el mismo rendimiento seria mejor usarlo en lugar de ese y Naive Bayes . Pero flaquece con respecto al random forest , aunque el problema del random forest es su tiempo de ejecucion, un problema tambien que tiene es que nuestro modelo su complejidad en espacio es mucho mayor que todos los demas por lo que no se recomienda usar en grandes cantidades de datos sin apoyo de equipo necesario
+
+## Modelos de Regresion
+
+Podemos ver que el rendimiento para predecir el valor de la casa usando modelos de regresion es el siguiente. Ojo mientras menor sea el MSE mejor el modelo
+
+![alt text](image-10.png)
+
+De todos el pero es el de Arbol de regresion. Y no podemos comparar el RNA con el de regresion lineal , knn o naive bayes porque es peor que esos.
+
+El unico en que puede haber una comparacion clara es con SVM lineal, que de hecho es peor que ese. Lo que indica que nuestro RNA no es tan bueno al momento de realizar regresiones. Pero el lado positivo es que podemos cambiar la funcion y esto mismo puede ayudar a que mejore un poco.
+
+En conclusion para poder realizar una regresion no es tan bueno el RNA a menos que sean datos mas complejos que una simple regresion lineal , y existan una gran cantidad de variables que podemos usar.
+
+## Modelo Final
+
+Podemos ver un resumen siendo el siguiente
+
+| Nombre del Modelo    | Clasificacion (Accurancy) | Regresion (MSE) | Observaciones                       |
+|----------------------|---------------------------|-----------------|-------------------------------------|
+| Regresion Lineal     | No Aplica                 | 9.157e-18       | El tiempo de ejecucion mas rapido   |
+| Regresion Logistica  | 0.7013                    | No aplico       | Es el que menos tiempo toma de clas |    
+| KNN                  | 0.67                      | 0.1600          | __________________________________  |
+| Naive Bayes          | 0.8041237                 | 0.0504431       | __________________________________  |
+| Arboles de Desicion  | 0.7414188                 | 1658823049      | Es el que peor le va en regresion   |
+| Random Forest        | 0.9816934                 | No aplico       | Toma mas tiempo de ejecucion        |  
+| SVM                  | 0.8707                    | 133.76          | ____________________________        |   
+| RNA                  | 0.8025                    | 174             | Es el que mas espacio toma de todos |
+
+El mejor modelo para predecir una variable continua es regresion lineal, esto porque es el que de todos toma menos tiempo, tiene mas ajuste de R^2. El unico problema es que si se tienen una gran cantidad de variables categoricas y se quiere usar con one encode no rinde tan bien.
+
+El siguiente mejor modelo para clasificacion es SVM, Esto porque aunque se tarda mucho en tiempo de ejecucion no es tanto a comparacion de Random Forest.
+
+Ademas esta muy bien ajustado sin sobreajuste ni subajuste. Y es el que mejor llega a predecir la variable. Solo en caso que no sea tan bueno en clasificar se recomienda random forest pero este ultimo tambien crece mucho en tiempo.
+
+Pero si tomamos en consideracion un modelo que sirve para ambos casos seria el de **Naive Bayes**. Ya que es el que rinde en promedio en ambos . Es mucho mejor que SVM en clasificacion y mucho mejor que KNN en regresion. Por lo que seria un modelo definitivo para ambo usos.
+
+En conclusion, el mejor modelo de todos es **Naive Bayes**, pero si solo se quiere usar exclusivamente para clasificacion lo mejor seria usar SVM, y si solo se quiere usar para Regresion optar por regresion lineal.
 
 ---
 
-## 9. Conclusiones
-- Principales hallazgos
-- Relevancia de los resultados
-- Aplicaciones o beneficios del análisis
+## Conclusiones
 
----
+- El precio de las casas *SalesPrice* se puede dividir en 3 grupos donde el precio es *bajo*,  *media* *alto*.
 
-## 10. Trabajo Futuro
-- Posibles mejoras
-- Nuevas técnicas a aplicar
-- Otras fuentes de datos
+- El precio de las casas se puede clasificar y predecir mediante el uso de **Naive Bayes**
 
----
-
-## 11. Bibliografía / Referencias
-- Libros, artículos, sitios web o papers utilizados
+- El precio de las casas tiene una alta correlacion con las variables de **OverallQual:** (Calidad de materiales y acabados.), **GrLivArea:** (Área habitable total.), **TotalBsmtSF:** (Área del sótano.), **GarageCars:** (Cantidad de autos que caben en el garaje.).
 
 ---
 
